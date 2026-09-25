@@ -25,30 +25,66 @@ class BenchmarkController extends Controller
     {
         $validated = $request->validate([
             'title' => ['nullable', 'string', 'max:150'],
-            'prompt_text' => ['required', 'string', 'max:50000'],
+            'prompt_text' => ['required_without:dataset_file', 'nullable', 'string', 'max:50000'],
+            'dataset_file' => ['required_without:prompt_text', 'nullable', 'file', 'mimes:json', 'max:1024'],
             'model_ids' => ['required', 'array', 'min:1'],
             'model_ids.*' => ['exists:models,id'],
         ]);
 
-        $benchmark = Benchmark::create([
-            'user_id' => $request->user()->id,
-            'title' => $validated['title'] ?? 'Benchmark '.now()->format('Y-m-d H:i'),
-            'prompt_text' => $validated['prompt_text'],
-            'status' => BenchmarkStatus::Pending,
-        ]);
+        $prompts = [];
 
-        foreach ($validated['model_ids'] as $modelId) {
-            BenchmarkResult::create([
-                'benchmark_id' => $benchmark->id,
-                'model_id' => $modelId,
-                'score_status' => 'pending',
-            ]);
+        if ($request->hasFile('dataset_file')) {
+            $content = file_get_contents($request->file('dataset_file')->getRealPath());
+            $data = json_decode($content, true);
+
+            if (! is_array($data)) {
+                return back()->withErrors(['dataset_file' => 'Invalid JSON file.'])->withInput();
+            }
+
+            foreach ($data as $item) {
+                if (is_string($item) && trim($item) !== '') {
+                    $prompts[] = trim($item);
+                } elseif (is_array($item) && isset($item['prompt']) && trim($item['prompt']) !== '') {
+                    $prompts[] = trim($item['prompt']);
+                }
+            }
+
+            if (empty($prompts)) {
+                return back()->withErrors(['dataset_file' => 'No valid prompts found in JSON file.'])->withInput();
+            }
+        } else {
+            $prompts[] = $validated['prompt_text'];
         }
 
-        RunBenchmarkJob::dispatch($benchmark);
+        $created = [];
+        foreach ($prompts as $index => $prompt) {
+            $benchmark = Benchmark::create([
+                'user_id' => $request->user()->id,
+                'title' => ($validated['title'] ?? 'Benchmark '.now()->format('Y-m-d H:i'))
+                    .(count($prompts) > 1 ? ' #'.($index + 1) : ''),
+                'prompt_text' => $prompt,
+                'status' => BenchmarkStatus::Pending,
+            ]);
 
-        return redirect()->route('benchmarks.show', $benchmark)
-            ->with('status', 'Benchmark submitted. Processing in background.');
+            foreach ($validated['model_ids'] as $modelId) {
+                BenchmarkResult::create([
+                    'benchmark_id' => $benchmark->id,
+                    'model_id' => $modelId,
+                    'score_status' => 'pending',
+                ]);
+            }
+
+            RunBenchmarkJob::dispatch($benchmark);
+            $created[] = $benchmark;
+        }
+
+        if (count($created) === 1) {
+            return redirect()->route('benchmarks.show', $created[0])
+                ->with('status', 'Benchmark submitted. Processing in background.');
+        }
+
+        return redirect()->route('dashboard')
+            ->with('status', count($created).' benchmarks submitted from dataset.');
     }
 
     public function show(Request $request, Benchmark $benchmark): View
