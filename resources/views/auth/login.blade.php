@@ -36,10 +36,5 @@
             Don't have an account? <a href="{{ route('register') }}" class="font-medium text-[#2563eb] hover:underline">Register</a>
         </p>
     </div>
-    <div class="mt-4 rounded-lg border border-[#e2e8f0] bg-white p-4 text-xs text-[#64748b]">
-        <p class="font-semibold text-[#1e293b] mb-1">Demo Accounts:</p>
-        <p>Admin: admin@aibench.local / password</p>
-        <p>User: user@aibench.local / password</p>
-    </div>
 </div>
 @endsection
