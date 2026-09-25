@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\BenchmarkController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MyModelController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('dashboard'));
@@ -24,6 +25,14 @@ Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // My Models
+    Route::get('my-models', [MyModelController::class, 'index'])->name('my-models.index');
+    Route::get('my-models/create', [MyModelController::class, 'create'])->name('my-models.create');
+    Route::post('my-models', [MyModelController::class, 'store'])->name('my-models.store');
+    Route::get('my-models/{model}/edit', [MyModelController::class, 'edit'])->name('my-models.edit');
+    Route::put('my-models/{model}', [MyModelController::class, 'update'])->name('my-models.update');
+    Route::delete('my-models/{model}', [MyModelController::class, 'destroy'])->name('my-models.destroy');
+
     // Benchmarks
     Route::get('benchmarks/create', [BenchmarkController::class, 'create'])->name('benchmarks.create');
     Route::post('benchmarks', [BenchmarkController::class, 'store'])->name('benchmarks.store');
@@ -34,7 +43,7 @@ Route::middleware('auth')->group(function () {
     // Analytics
     Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
 
-    // API Keys
+    // Legacy API Keys (deprecated)
     Route::get('api-keys', [ApiKeyController::class, 'index'])->name('api-keys.index');
     Route::post('api-keys', [ApiKeyController::class, 'store'])->name('api-keys.store');
     Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy'])->name('api-keys.destroy');

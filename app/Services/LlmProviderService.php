@@ -8,24 +8,31 @@ use Illuminate\Support\Facades\Log;
 
 class LlmProviderService
 {
-    public function sendPrompt(AiModel $model, string $prompt, ?string $apiKey): array
+    public function sendPrompt(AiModel $model, string $prompt): array
     {
+        $apiKey = $model->decrypted_api_key;
         $params = $model->default_params ?? [];
+        $baseUrl = rtrim($model->effective_base_url, '/');
+
+        if (empty($apiKey)) {
+            throw new \RuntimeException("No API key configured for model: {$model->full_name}");
+        }
 
         return match ($model->provider) {
-            'openai' => $this->callOpenAI($model, $prompt, $apiKey, $params),
-            'anthropic' => $this->callAnthropic($model, $prompt, $apiKey, $params),
-            'google' => $this->callGoogle($model, $prompt, $apiKey, $params),
+            'openai' => $this->callOpenAI($model, $prompt, $apiKey, $params, $baseUrl),
+            'anthropic' => $this->callAnthropic($model, $prompt, $apiKey, $params, $baseUrl),
+            'google' => $this->callGoogle($model, $prompt, $apiKey, $params, $baseUrl),
+            'openai_compatible' => $this->callOpenAICompatible($model, $prompt, $apiKey, $params, $baseUrl),
             default => throw new \RuntimeException("Unsupported provider: {$model->provider}"),
         };
     }
 
-    private function callOpenAI(AiModel $model, string $prompt, ?string $apiKey, array $params): array
+    private function callOpenAI(AiModel $model, string $prompt, string $apiKey, array $params, string $baseUrl): array
     {
         $response = Http::withHeaders([
             'Authorization' => 'Bearer '.$apiKey,
             'Content-Type' => 'application/json',
-        ])->timeout(120)->post('https://api.openai.com/v1/chat/completions', [
+        ])->timeout(120)->post($baseUrl.'/v1/chat/completions', [
             'model' => $model->model_name,
             'messages' => [['role' => 'user', 'content' => $prompt]],
             'temperature' => $params['temperature'] ?? 0.7,
@@ -47,13 +54,13 @@ class LlmProviderService
         ];
     }
 
-    private function callAnthropic(AiModel $model, string $prompt, ?string $apiKey, array $params): array
+    private function callAnthropic(AiModel $model, string $prompt, string $apiKey, array $params, string $baseUrl): array
     {
         $response = Http::withHeaders([
             'x-api-key' => $apiKey,
             'anthropic-version' => '2023-06-01',
             'Content-Type' => 'application/json',
-        ])->timeout(120)->post('https://api.anthropic.com/v1/messages', [
+        ])->timeout(120)->post($baseUrl.'/v1/messages', [
             'model' => $model->model_name,
             'max_tokens' => $params['max_tokens'] ?? 4096,
             'temperature' => $params['temperature'] ?? 0.7,
@@ -75,11 +82,9 @@ class LlmProviderService
         ];
     }
 
-    private function callGoogle(AiModel $model, string $prompt, ?string $apiKey, array $params): array
+    private function callGoogle(AiModel $model, string $prompt, string $apiKey, array $params, string $baseUrl): array
     {
-        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model->model_name}:generateContent?key={$apiKey}";
-
-        $response = Http::timeout(120)->post($url, [
+        $response = Http::timeout(120)->post($baseUrl.'/v1beta/models/'.$model->model_name.':generateContent?key='.$apiKey, [
             'contents' => [['parts' => [['text' => $prompt]]]],
             'generationConfig' => [
                 'temperature' => $params['temperature'] ?? 0.7,
@@ -100,6 +105,33 @@ class LlmProviderService
             'output' => $text,
             'prompt_tokens' => $data['usageMetadata']['promptTokenCount'] ?? 0,
             'completion_tokens' => $data['usageMetadata']['candidatesTokenCount'] ?? 0,
+        ];
+    }
+
+    private function callOpenAICompatible(AiModel $model, string $prompt, string $apiKey, array $params, string $baseUrl): array
+    {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer '.$apiKey,
+            'Content-Type' => 'application/json',
+        ])->timeout(120)->post($baseUrl.'/v1/chat/completions', [
+            'model' => $model->model_name,
+            'messages' => [['role' => 'user', 'content' => $prompt]],
+            'temperature' => $params['temperature'] ?? 0.7,
+            'max_tokens' => $params['max_tokens'] ?? 4096,
+            'top_p' => $params['top_p'] ?? 1.0,
+        ]);
+
+        if ($response->failed()) {
+            Log::error('OpenAI Compatible API error', ['status' => $response->status(), 'body' => $response->body()]);
+            throw new \RuntimeException('API error: '.$response->body());
+        }
+
+        $data = $response->json();
+
+        return [
+            'output' => $data['choices'][0]['message']['content'] ?? '',
+            'prompt_tokens' => $data['usage']['prompt_tokens'] ?? 0,
+            'completion_tokens' => $data['usage']['completion_tokens'] ?? 0,
         ];
     }
 }

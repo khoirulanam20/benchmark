@@ -17,7 +17,7 @@ class BenchmarkTest extends TestCase
     public function test_create_benchmark_page_is_displayed(): void
     {
         $user = User::factory()->create();
-        AiModel::factory()->create();
+        AiModel::factory()->withApiKey()->create();
 
         $response = $this->actingAs($user)->get('/benchmarks/create');
         $response->assertStatus(200);
@@ -28,7 +28,7 @@ class BenchmarkTest extends TestCase
     {
         Queue::fake();
         $user = User::factory()->create();
-        $model = AiModel::factory()->create();
+        $model = AiModel::factory()->forUser($user)->withApiKey()->create();
 
         $response = $this->actingAs($user)->post('/benchmarks', [
             'title' => 'Test Benchmark',
@@ -73,5 +73,19 @@ class BenchmarkTest extends TestCase
         $response = $this->actingAs($user)->getJson("/benchmarks/{$benchmark->id}/status");
         $response->assertStatus(200);
         $response->assertJsonStructure(['status', 'results']);
+    }
+
+    public function test_user_cannot_submit_benchmark_without_api_key(): void
+    {
+        $user = User::factory()->create();
+        $model = AiModel::factory()->forUser($user)->create(); // no API key
+
+        $response = $this->actingAs($user)->post('/benchmarks', [
+            'title' => 'Test',
+            'prompt_text' => 'Hello',
+            'model_ids' => [$model->id],
+        ]);
+
+        $response->assertSessionHasErrors('model_ids');
     }
 }

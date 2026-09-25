@@ -10,7 +10,6 @@
 
     <form method="POST" action="{{ route('benchmarks.store') }}" enctype="multipart/form-data" class="space-y-6">
         @csrf
-        {{-- Title --}}
         <div>
             <label for="title" class="block text-sm font-medium text-[#1e293b]">Title (optional)</label>
             <input type="text" name="title" id="title" value="{{ old('title') }}"
@@ -21,14 +20,9 @@
         {{-- Input Mode Tabs --}}
         <div>
             <div class="flex gap-4 mb-3" id="input-tabs">
-                <button type="button" onclick="switchTab('manual')" id="tab-manual" class="rounded-lg px-4 py-2 text-sm font-semibold bg-[#2563eb] text-white transition-colors">
-                    Manual Prompt
-                </button>
-                <button type="button" onclick="switchTab('json')" id="tab-json" class="rounded-lg px-4 py-2 text-sm font-semibold bg-[#f1f5f9] text-[#64748b] transition-colors">
-                    Import JSON Dataset
-                </button>
+                <button type="button" onclick="switchTab('manual')" id="tab-manual" class="rounded-lg px-4 py-2 text-sm font-semibold bg-[#2563eb] text-white transition-colors">Manual Prompt</button>
+                <button type="button" onclick="switchTab('json')" id="tab-json" class="rounded-lg px-4 py-2 text-sm font-semibold bg-[#f1f5f9] text-[#64748b] transition-colors">Import JSON Dataset</button>
             </div>
-
             <div id="panel-manual">
                 <label for="prompt_text" class="block text-sm font-medium text-[#1e293b]">Prompt</label>
                 <textarea name="prompt_text" id="prompt_text" rows="8"
@@ -38,7 +32,6 @@
                 <p class="mt-1 text-xs text-[#ef4444]">{{ $message }}</p>
                 @enderror
             </div>
-
             <div id="panel-json" class="hidden">
                 <label for="dataset_file" class="block text-sm font-medium text-[#1e293b]">JSON File</label>
                 <div class="mt-1 rounded-lg border-2 border-dashed border-[#e2e8f0] bg-[#f8fafc] p-6 text-center hover:border-[#2563eb] transition-colors">
@@ -55,32 +48,79 @@
 
         {{-- Model Selection --}}
         <div>
-            <label class="block text-sm font-medium text-[#1e293b] mb-3">Select Models to Compare</label>
+            <div class="flex items-center justify-between mb-3">
+                <label class="text-sm font-medium text-[#1e293b]">Select Models to Compare</label>
+                <a href="{{ route('my-models.create') }}" class="text-xs font-medium text-[#2563eb] hover:underline">+ Add new model</a>
+            </div>
             @error('model_ids')
             <p class="mb-2 text-xs text-[#ef4444]">{{ $message }}</p>
             @enderror
-            <div class="space-y-4">
-                @foreach($providerGroups as $provider => $models)
-                <div class="rounded-xl border border-[#e2e8f0] bg-white p-4">
-                    <p class="mb-3 text-xs font-bold uppercase tracking-wider text-[#64748b]">{{ ucfirst($provider) }}</p>
-                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        @foreach($models as $model)
-                        <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3 transition-colors hover:border-[#2563eb] has-[:checked]:border-[#2563eb] has-[:checked]:bg-[#2563eb]/5">
-                            <input type="checkbox" name="model_ids[]" value="{{ $model->id }}" class="h-4 w-4 rounded border-[#e2e8f0] text-[#2563eb] focus:ring-[#2563eb]"
-                                {{ in_array($model->id, old('model_ids', [])) ? 'checked' : '' }}>
-                            <div>
-                                <p class="text-sm font-semibold text-[#1e293b]">{{ $model->display_name ?? $model->model_name }}</p>
-                                <p class="text-[10px] text-[#94a3b8]">In: ${{ number_format($model->input_price_per_1k_tokens, 4) }}/1k &middot; Out: ${{ number_format($model->output_price_per_1k_tokens, 4) }}/1k</p>
-                            </div>
-                        </label>
-                        @endforeach
+
+            {{-- User's Models --}}
+            @if($userModels->isNotEmpty())
+            <div class="mb-4">
+                <p class="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Your Models</p>
+                <div class="space-y-2">
+                    @foreach($userModels as $provider => $models)
+                    <div class="rounded-xl border border-[#2563eb]/20 bg-[#2563eb]/5 p-4">
+                        <p class="mb-2 text-xs font-bold uppercase tracking-wider text-[#2563eb]">{{ ucfirst($provider) }}</p>
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            @foreach($models as $model)
+                            <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-[#e2e8f0] bg-white p-3 transition-colors hover:border-[#2563eb] has-[:checked]:border-[#2563eb] has-[:checked]:bg-[#2563eb]/5">
+                                <input type="checkbox" name="model_ids[]" value="{{ $model->id }}" class="h-4 w-4 rounded border-[#e2e8f0] text-[#2563eb] focus:ring-[#2563eb]"
+                                    {{ in_array($model->id, old('model_ids', [])) ? 'checked' : '' }}>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-semibold text-[#1e293b]">{{ $model->display_name ?? $model->model_name }}</p>
+                                    <p class="text-[10px] text-[#94a3b8]">
+                                        @if($model->hasApiKey()) <span class="text-[#10b981]">Key set</span> @else <span class="text-[#ef4444]">No key</span> @endif
+                                        @if($model->base_url) &middot; Custom URL @endif
+                                    </p>
+                                </div>
+                            </label>
+                            @endforeach
+                        </div>
                     </div>
+                    @endforeach
                 </div>
-                @endforeach
             </div>
+            @endif
+
+            {{-- Preset Models (Admin) --}}
+            @if($presetModels->isNotEmpty())
+            <div>
+                <p class="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Preset Models (Admin)</p>
+                <div class="space-y-2">
+                    @foreach($presetModels as $provider => $models)
+                    <div class="rounded-xl border border-[#e2e8f0] bg-white p-4">
+                        <p class="mb-2 text-xs font-bold uppercase tracking-wider text-[#64748b]">{{ ucfirst($provider) }}</p>
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            @foreach($models as $model)
+                            <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3 transition-colors hover:border-[#2563eb] has-[:checked]:border-[#2563eb] has-[:checked]:bg-[#2563eb]/5">
+                                <input type="checkbox" name="model_ids[]" value="{{ $model->id }}" class="h-4 w-4 rounded border-[#e2e8f0] text-[#2563eb] focus:ring-[#2563eb]"
+                                    {{ in_array($model->id, old('model_ids', [])) ? 'checked' : '' }}>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-semibold text-[#1e293b]">{{ $model->display_name ?? $model->model_name }}</p>
+                                    <p class="text-[10px] text-[#94a3b8]">In: ${{ number_format($model->input_price_per_1k_tokens, 4) }}/1k &middot; Out: ${{ number_format($model->output_price_per_1k_tokens, 4) }}/1k</p>
+                                </div>
+                            </label>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
+            @if($userModels->isEmpty() && $presetModels->isEmpty())
+            <div class="rounded-xl border border-[#e2e8f0] bg-white p-8 text-center">
+                <p class="text-sm text-[#64748b]">No models available.</p>
+                <a href="{{ route('my-models.create') }}" class="mt-2 inline-flex items-center gap-2 rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d4ed8]">
+                    Add Your First Model
+                </a>
+            </div>
+            @endif
         </div>
 
-        {{-- Submit --}}
         <div class="flex items-center gap-4">
             <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#2563eb] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#1d4ed8] active:bg-[#1e40af] transition-colors">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
@@ -98,7 +138,6 @@ function switchTab(tab) {
     const jsonPanel = document.getElementById('panel-json');
     const manualTab = document.getElementById('tab-manual');
     const jsonTab = document.getElementById('tab-json');
-
     if (tab === 'manual') {
         manualPanel.classList.remove('hidden');
         jsonPanel.classList.add('hidden');

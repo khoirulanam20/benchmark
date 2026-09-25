@@ -13,12 +13,18 @@ use Illuminate\View\View;
 
 class BenchmarkController extends Controller
 {
-    public function create(): View
+    public function create(Request $request): View
     {
-        $models = AiModel::active()->orderBy('provider')->orderBy('model_name')->get();
-        $providerGroups = $models->groupBy('provider');
+        $models = AiModel::availableToUser($request->user()->id)
+            ->active()
+            ->orderBy('provider')
+            ->orderBy('model_name')
+            ->get();
 
-        return view('benchmarks.create', compact('providerGroups'));
+        $userModels = $models->where('user_id', $request->user()->id)->groupBy('provider');
+        $presetModels = $models->whereNull('user_id')->groupBy('provider');
+
+        return view('benchmarks.create', compact('userModels', 'presetModels'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -30,6 +36,24 @@ class BenchmarkController extends Controller
             'model_ids' => ['required', 'array', 'min:1'],
             'model_ids.*' => ['exists:models,id'],
         ]);
+
+        // Verify user can only use their own models or admin presets
+        $user = $request->user();
+        $validModels = AiModel::availableToUser($user->id)->whereIn('id', $validated['model_ids'])->pluck('id');
+        $invalidIds = array_diff($validated['model_ids'], $validModels->toArray());
+        if (! empty($invalidIds)) {
+            return back()->withErrors(['model_ids' => 'Some selected models are not available to you.'])->withInput();
+        }
+
+        // Check all selected models have API keys
+        $modelsWithoutKeys = AiModel::whereIn('id', $validated['model_ids'])
+            ->where(function ($q) {
+                $q->whereNull('encrypted_api_key')->orWhere('encrypted_api_key', '');
+            })->get()->pluck('full_name')->toArray();
+
+        if (! empty($modelsWithoutKeys)) {
+            return back()->withErrors(['model_ids' => 'These models need API keys: '.implode(', ', $modelsWithoutKeys)])->withInput();
+        }
 
         $prompts = [];
 
@@ -59,7 +83,7 @@ class BenchmarkController extends Controller
         $created = [];
         foreach ($prompts as $index => $prompt) {
             $benchmark = Benchmark::create([
-                'user_id' => $request->user()->id,
+                'user_id' => $user->id,
                 'title' => ($validated['title'] ?? 'Benchmark '.now()->format('Y-m-d H:i'))
                     .(count($prompts) > 1 ? ' #'.($index + 1) : ''),
                 'prompt_text' => $prompt,

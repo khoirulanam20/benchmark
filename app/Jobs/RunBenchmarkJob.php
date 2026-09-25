@@ -4,7 +4,6 @@ namespace App\Jobs;
 
 use App\Enums\BenchmarkStatus;
 use App\Enums\ScoreStatus;
-use App\Models\ApiKey;
 use App\Models\Benchmark;
 use App\Services\LlmProviderService;
 use Illuminate\Bus\Queueable;
@@ -12,7 +11,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 
 class RunBenchmarkJob implements ShouldQueue
@@ -39,16 +37,15 @@ class RunBenchmarkJob implements ShouldQueue
 
         foreach ($results as $result) {
             try {
-                $apiKey = $this->resolveApiKey($this->benchmark->user_id, $result->model->provider);
-                if ($apiKey === null) {
-                    $result->update(['error_message' => 'No API key configured for '.$result->model->provider]);
+                if (! $result->model->hasApiKey()) {
+                    $result->update(['error_message' => 'No API key configured for model: '.$result->model->full_name]);
                     $hasError = true;
 
                     continue;
                 }
 
                 $start = microtime(true);
-                $response = $llmService->sendPrompt($result->model, $this->benchmark->prompt_text, $apiKey);
+                $response = $llmService->sendPrompt($result->model, $this->benchmark->prompt_text);
                 $latency = microtime(true) - $start;
 
                 $cost = ($response['prompt_tokens'] / 1000 * (float) $result->model->input_price_per_1k_tokens)
@@ -82,18 +79,5 @@ class RunBenchmarkJob implements ShouldQueue
         if ($totalCost > 0) {
             $this->benchmark->user()->increment('current_month_cost', $totalCost);
         }
-    }
-
-    private function resolveApiKey(int $userId, string $provider): ?string
-    {
-        $apiKey = ApiKey::where('user_id', $userId)
-            ->where('provider_name', $provider)
-            ->first();
-
-        if ($apiKey === null || $apiKey->isExpired()) {
-            return null;
-        }
-
-        return Crypt::decryptString($apiKey->encrypted_key);
     }
 }
