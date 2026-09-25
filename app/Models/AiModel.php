@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use Database\Factories\AiModelFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AiModel extends Model
 {
+    /** @use HasFactory<AiModelFactory> */
+    use HasFactory;
+
     protected $table = 'models';
 
     protected $fillable = [
