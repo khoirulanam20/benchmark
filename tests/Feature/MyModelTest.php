@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AiModel;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class MyModelTest extends TestCase
@@ -84,6 +85,58 @@ class MyModelTest extends TestCase
 
         $response = $this->actingAs($user)->get("/my-models/{$model->id}/edit");
         $response->assertStatus(403);
+    }
+
+    public function test_user_can_test_saved_model(): void
+    {
+        Http::fake([
+            '*/v1/chat/completions' => Http::response([
+                'choices' => [['message' => ['content' => 'OK']]],
+                'usage' => ['prompt_tokens' => 5, 'completion_tokens' => 1],
+            ]),
+        ]);
+
+        $user = User::factory()->create();
+        $model = AiModel::factory()->forUser($user)->withApiKey()->create([
+            'provider' => 'openai',
+            'model_name' => 'gpt-4o',
+        ]);
+
+        $response = $this->actingAs($user)->postJson("/my-models/{$model->id}/test");
+        $response->assertOk();
+        $response->assertJson(['ok' => true, 'output' => 'OK']);
+    }
+
+    public function test_user_cannot_test_other_users_model(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $model = AiModel::factory()->forUser($other)->withApiKey()->create();
+
+        $response = $this->actingAs($user)->postJson("/my-models/{$model->id}/test");
+        $response->assertStatus(403);
+    }
+
+    public function test_user_can_test_connection_from_payload(): void
+    {
+        Http::fake([
+            '*/v1/chat/completions' => Http::response([
+                'choices' => [['message' => ['content' => 'OK']]],
+                'usage' => ['prompt_tokens' => 3, 'completion_tokens' => 1],
+            ]),
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/my-models/test-connection', [
+            'model_name' => 'gpt-4o',
+            'provider' => 'openai',
+            'api_key' => 'sk-test-1234567890abcdef',
+            'base_url' => 'https://api.openai.com',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['ok' => true]);
     }
 
     public function test_user_can_create_model_with_custom_base_url(): void

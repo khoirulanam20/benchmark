@@ -19,7 +19,7 @@ class DashboardController extends Controller
             ->withSum('results', 'cost')
             ->withAvg('results', 'quality_score')
             ->latest()
-            ->paginate(10);
+            ->paginate(5);
 
         $stats = [
             'total_benchmarks' => Benchmark::where('user_id', $user->id)->count(),

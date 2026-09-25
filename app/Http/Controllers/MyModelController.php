@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AiModel;
+use App\Services\ModelConnectionTestService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -111,5 +113,49 @@ class MyModelController extends Controller
 
         return redirect()->route('my-models.index')
             ->with('status', 'Model deleted.');
+    }
+
+    public function test(Request $request, AiModel $model, ModelConnectionTestService $testService): JsonResponse
+    {
+        abort_unless($model->isOwnedBy($request->user()->id), 403);
+
+        $testModel = $this->modelWithRequestOverrides($model, $request);
+        $result = $testService->run($testModel);
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function testConnection(Request $request, ModelConnectionTestService $testService): JsonResponse
+    {
+        $validated = $request->validate([
+            'model_name' => ['required', 'string', 'max:200'],
+            'provider' => ['required', 'string', 'max:50'],
+            'api_key' => ['required', 'string', 'min:5'],
+            'base_url' => ['nullable', 'string', 'max:500'],
+            'default_params' => ['nullable', 'array'],
+        ]);
+
+        $result = $testService->runFromPayload($validated);
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
+    }
+
+    private function modelWithRequestOverrides(AiModel $model, Request $request): AiModel
+    {
+        if (! $request->has('base_url') && ! $request->filled('api_key')) {
+            return $model;
+        }
+
+        $testModel = $model->replicate();
+
+        if ($request->has('base_url')) {
+            $testModel->base_url = $request->input('base_url') ?: null;
+        }
+
+        if ($request->filled('api_key')) {
+            $testModel->api_key = $request->string('api_key')->toString();
+        }
+
+        return $testModel;
     }
 }

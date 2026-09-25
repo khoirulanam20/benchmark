@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiModel;
+use App\Services\ModelConnectionTestService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -52,6 +54,8 @@ class ModelPresetController extends Controller
     {
         $validated = $request->validate([
             'display_name' => ['nullable', 'string', 'max:100'],
+            'base_url' => ['nullable', 'string', 'max:500'],
+            'api_key' => ['nullable', 'string', 'min:5'],
             'input_price_per_1k_tokens' => ['required', 'numeric', 'min:0'],
             'output_price_per_1k_tokens' => ['required', 'numeric', 'min:0'],
             'default_params' => ['nullable', 'array'],
@@ -62,6 +66,14 @@ class ModelPresetController extends Controller
         ]);
 
         $validated['is_active'] = $request->boolean('is_active');
+
+        if (! empty($validated['api_key'])) {
+            $model->api_key = $validated['api_key'];
+            unset($validated['api_key']);
+        } else {
+            unset($validated['api_key']);
+        }
+
         $model->update($validated);
 
         return redirect()->route('admin.models.index')
@@ -74,5 +86,28 @@ class ModelPresetController extends Controller
 
         return redirect()->route('admin.models.index')
             ->with('status', 'Model preset deleted.');
+    }
+
+    public function test(Request $request, AiModel $model, ModelConnectionTestService $testService): JsonResponse
+    {
+        abort_unless($model->isPreset(), 404);
+
+        $testModel = $model;
+
+        if ($request->has('base_url') || $request->filled('api_key')) {
+            $testModel = $model->replicate();
+
+            if ($request->has('base_url')) {
+                $testModel->base_url = $request->input('base_url') ?: null;
+            }
+
+            if ($request->filled('api_key')) {
+                $testModel->api_key = $request->string('api_key')->toString();
+            }
+        }
+
+        $result = $testService->run($testModel);
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
     }
 }

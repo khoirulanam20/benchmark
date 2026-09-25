@@ -75,6 +75,7 @@
                         @endif
                     </td>
                     <td class="px-4 py-3 text-right space-x-2">
+                        <button type="button" class="text-sm font-medium text-[#64748b] hover:text-[#2563eb]" onclick="runModelSavedTest('{{ route('my-models.test', $model) }}')">Tes</button>
                         <a href="{{ route('my-models.edit', $model) }}" class="text-sm font-medium text-[#2563eb] hover:underline">Edit</a>
                         <form method="POST" action="{{ route('my-models.destroy', $model) }}" class="inline" onsubmit="return confirm('Delete this model?')">
                             @csrf @method('DELETE')
@@ -88,5 +89,7 @@
     </div>
     @endforeach
     @endif
+
+    @include('partials.model-connection-test')
 </div>
 @endsection

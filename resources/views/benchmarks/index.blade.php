@@ -1,41 +1,19 @@
 @extends('layouts.app')
-@section('page-title', 'Dashboard')
+@section('page-title', 'Benchmark History')
 
 @section('content')
 <div class="space-y-6">
-    {{-- Stats Cards --}}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-[#64748b]">Total Benchmarks</p>
-            <p class="mt-2 text-2xl font-bold text-[#1e293b]">{{ $stats['total_benchmarks'] }}</p>
-        </div>
-        <div class="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-[#64748b]">Completed</p>
-            <p class="mt-2 text-2xl font-bold text-[#10b981]">{{ $stats['completed'] }}</p>
-        </div>
-        <div class="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-[#64748b]">Total Cost</p>
-            <p class="mt-2 text-2xl font-bold text-[#1e293b]">${{ number_format($stats['total_cost'], 4) }}</p>
-        </div>
-        <div class="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-[#64748b]">Avg Quality Score</p>
-            <p class="mt-2 text-2xl font-bold text-[#2563eb]">{{ $stats['avg_quality'] ? number_format($stats['avg_quality'], 1) . '/10' : 'N/A' }}</p>
-        </div>
-    </div>
-
-    {{-- Quick Action --}}
     <div class="flex items-center justify-between">
-        <h3 class="text-lg font-bold text-[#1e293b]">Recent Benchmarks</h3>
-        <div class="flex items-center gap-3">
-        <a href="{{ route('benchmarks.index') }}" class="text-sm font-medium text-[#64748b] hover:text-[#2563eb]">Lihat semua</a>
+        <div>
+            <h3 class="text-lg font-bold text-[#1e293b]">Benchmark History</h3>
+            <p class="mt-1 text-sm text-[#64748b]">All benchmarks you have run.</p>
+        </div>
         <a href="{{ route('benchmarks.create') }}" class="inline-flex items-center gap-2 rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d4ed8] transition-colors">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
             New Benchmark
         </a>
-        </div>
     </div>
 
-    {{-- Benchmarks Table --}}
     <div class="overflow-hidden rounded-xl border border-[#e2e8f0] bg-white shadow-sm">
         @if($benchmarks->isEmpty())
         <div class="flex flex-col items-center justify-center py-16">
@@ -56,11 +34,12 @@
                     <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-[#64748b]">Avg Score</th>
                     <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-[#64748b]">Cost</th>
                     <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-[#64748b]">Date</th>
+                    <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-[#64748b]">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-[#f1f5f9]">
                 @foreach($benchmarks as $bm)
-                <tr class="cursor-pointer hover:bg-[#f8fafc] transition-colors" onclick="window.location='{{ route('benchmarks.show', $bm) }}'">
+                <tr class="hover:bg-[#f8fafc] transition-colors">
                     <td class="px-4 py-3.5 text-sm font-medium text-[#1e293b]">{{ $bm->title }}</td>
                     <td class="px-4 py-3.5">
                         @php $statusColor = match($bm->status->value) { 'completed' => 'bg-[#10b981]/10 text-[#10b981]', 'processing' => 'bg-[#2563eb]/10 text-[#2563eb]', 'failed' => 'bg-[#ef4444]/10 text-[#ef4444]', default => 'bg-[#f59e0b]/10 text-[#f59e0b]' }; @endphp
@@ -74,7 +53,10 @@
                     <td class="px-4 py-3.5 text-sm text-[#64748b]">{{ $bm->results_count }}</td>
                     <td class="px-4 py-3.5 text-sm font-semibold text-[#1e293b]">{{ $bm->results_avg_quality_score ? number_format($bm->results_avg_quality_score, 1) . '/10' : '-' }}</td>
                     <td class="px-4 py-3.5 text-sm text-[#1e293b]">${{ number_format($bm->results_sum_cost ?? 0, 4) }}</td>
-                    <td class="px-4 py-3.5 text-sm text-[#94a3b8]">{{ $bm->created_at->format('M d, H:i') }}</td>
+                    <td class="px-4 py-3.5 text-sm text-[#94a3b8]">{{ $bm->created_at->format('M d, Y H:i') }}</td>
+                    <td class="px-4 py-3.5 text-right">
+                        <a href="{{ route('benchmarks.show', $bm) }}" class="text-sm font-medium text-[#2563eb] hover:underline">View</a>
+                    </td>
                 </tr>
                 @endforeach
             </tbody>
@@ -82,6 +64,6 @@
         @endif
     </div>
 
-    <div class="">{{ $benchmarks->links() }}</div>
+    <div>{{ $benchmarks->links() }}</div>
 </div>
 @endsection

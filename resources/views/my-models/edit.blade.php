@@ -73,8 +73,12 @@
                     <span class="text-sm font-medium text-[#1e293b]">Active</span>
                 </label>
             </div>
-            <div class="flex items-center gap-4">
+            @include('partials.model-connection-test')
+
+            <div class="flex flex-wrap items-center gap-4">
                 <button type="submit" class="rounded-lg bg-[#2563eb] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1d4ed8] transition-colors">Update Model</button>
+                <button type="button" class="rounded-lg border border-[#e2e8f0] bg-white px-5 py-2.5 text-sm font-semibold text-[#1e293b] hover:bg-[#f8fafc] transition-colors"
+                    onclick="runModelFormTest('{{ route('my-models.test-connection') }}', { savedModelUrl: '{{ route('my-models.test', $model) }}' })">Tes koneksi</button>
                 <a href="{{ route('my-models.index') }}" class="text-sm font-medium text-[#64748b] hover:text-[#1e293b]">Cancel</a>
             </div>
         </form>

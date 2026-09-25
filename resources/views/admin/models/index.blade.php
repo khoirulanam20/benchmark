@@ -22,6 +22,7 @@
                     <th class="px-5 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[#64748b]">Model</th>
                     <th class="px-5 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[#64748b]">Input $/1k</th>
                     <th class="px-5 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[#64748b]">Output $/1k</th>
+                    <th class="px-5 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[#64748b]">Credentials</th>
                     <th class="px-5 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[#64748b]">Status</th>
                     <th class="px-5 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[#64748b]">Actions</th>
                 </tr>
@@ -35,6 +36,18 @@
                     </td>
                     <td class="px-5 py-3 text-right text-sm text-[#1e293b]">${{ number_format($model->input_price_per_1k_tokens, 4) }}</td>
                     <td class="px-5 py-3 text-right text-sm text-[#1e293b]">${{ number_format($model->output_price_per_1k_tokens, 4) }}</td>
+                    <td class="px-5 py-3 text-center">
+                        <div class="flex flex-wrap items-center justify-center gap-1">
+                            @if($model->hasApiKey())
+                            <span class="inline-flex rounded-full bg-[#10b981]/10 px-2 py-0.5 text-[10px] font-semibold text-[#10b981]">Key</span>
+                            @else
+                            <span class="inline-flex rounded-full bg-[#ef4444]/10 px-2 py-0.5 text-[10px] font-semibold text-[#ef4444]">No key</span>
+                            @endif
+                            @if($model->base_url || $model->effective_base_url)
+                            <span class="inline-flex rounded-full bg-[#2563eb]/10 px-2 py-0.5 text-[10px] font-semibold text-[#2563eb]">URL</span>
+                            @endif
+                        </div>
+                    </td>
                     <td class="px-5 py-3 text-center">
                         @if($model->is_active)
                         <span class="inline-flex rounded-full bg-[#10b981]/10 px-2.5 py-1 text-xs font-semibold text-[#10b981]">Active</span>

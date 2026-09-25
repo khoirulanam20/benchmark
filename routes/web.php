@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ModelPresetController;
 use App\Http\Controllers\Admin\PricingController;
 use App\Http\Controllers\Admin\ScoreValidationController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\ApiKeyController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -29,11 +30,14 @@ Route::middleware('auth')->group(function () {
     Route::get('my-models', [MyModelController::class, 'index'])->name('my-models.index');
     Route::get('my-models/create', [MyModelController::class, 'create'])->name('my-models.create');
     Route::post('my-models', [MyModelController::class, 'store'])->name('my-models.store');
+    Route::post('my-models/test-connection', [MyModelController::class, 'testConnection'])->name('my-models.test-connection');
+    Route::post('my-models/{model}/test', [MyModelController::class, 'test'])->name('my-models.test');
     Route::get('my-models/{model}/edit', [MyModelController::class, 'edit'])->name('my-models.edit');
     Route::put('my-models/{model}', [MyModelController::class, 'update'])->name('my-models.update');
     Route::delete('my-models/{model}', [MyModelController::class, 'destroy'])->name('my-models.destroy');
 
     // Benchmarks
+    Route::get('benchmarks', [BenchmarkController::class, 'index'])->name('benchmarks.index');
     Route::get('benchmarks/create', [BenchmarkController::class, 'create'])->name('benchmarks.create');
     Route::post('benchmarks', [BenchmarkController::class, 'store'])->name('benchmarks.store');
     Route::get('benchmarks/{benchmark}', [BenchmarkController::class, 'show'])->name('benchmarks.show');
@@ -53,12 +57,16 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('models', [ModelPresetController::class, 'index'])->name('models.index');
     Route::get('models/create', [ModelPresetController::class, 'create'])->name('models.create');
     Route::post('models', [ModelPresetController::class, 'store'])->name('models.store');
+    Route::post('models/{model}/test', [ModelPresetController::class, 'test'])->name('models.test');
     Route::get('models/{model}/edit', [ModelPresetController::class, 'edit'])->name('models.edit');
     Route::put('models/{model}', [ModelPresetController::class, 'update'])->name('models.update');
     Route::delete('models/{model}', [ModelPresetController::class, 'destroy'])->name('models.destroy');
 
     Route::get('pricing', [PricingController::class, 'index'])->name('pricing.index');
     Route::put('pricing/{model}', [PricingController::class, 'update'])->name('pricing.update');
+
+    Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
+    Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
 
     Route::get('scores', [ScoreValidationController::class, 'index'])->name('scores.index');
     Route::put('scores/{result}', [ScoreValidationController::class, 'update'])->name('scores.update');

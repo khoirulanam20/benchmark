@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ApiKey;
+use App\Models\AppSetting;
 use App\Models\BenchmarkResult;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
@@ -10,38 +11,35 @@ use Illuminate\Support\Facades\Log;
 
 class ScoringService
 {
-    private const JUDGE_PROMPT = <<<'PROMPT'
-You are an expert AI output evaluator. Rate the following AI-generated response on a scale of 1-10 based on these criteria:
-- Accuracy & Factual Correctness (weight: 30%)
-- Completeness (weight: 25%)
-- Clarity & Coherence (weight: 20%)
-- Relevance to the prompt (weight: 15%)
-- Conciseness (weight: 10%)
-
-Original Prompt:
----
-{prompt}
----
-
-AI Response to evaluate:
----
-{response}
----
-
-Reply ONLY with valid JSON in this exact format:
-{"score": <float 1-10>, "accuracy": <float 1-10>, "completeness": <float 1-10>, "clarity": <float 1-10>, "relevance": <float 1-10>, "conciseness": <float 1-10>, "reasoning": "<brief explanation>"}
-PROMPT;
+    public function __construct(
+        private TypeSafeJevScoringService $jevScoringService,
+    ) {}
 
     public function score(BenchmarkResult $result): void
     {
-        $benchmark = $result->benchmark;
-        if (! $benchmark || ! $result->output_content) {
+        if (! $result->benchmark || ! filled($result->output_content)) {
             return;
         }
 
-        $judgeKey = $this->findJudgeApiKey($result->benchmark->user_id);
+        if (AppSetting::hasSecret('typesafe_api_key')) {
+            if ($this->jevScoringService->score($result)) {
+                return;
+            }
+
+            Log::warning('Jev scoring failed, falling back to OpenAI judge if configured', [
+                'result_id' => $result->id,
+            ]);
+        }
+
+        $this->scoreWithOpenAiJudge($result);
+    }
+
+    private function scoreWithOpenAiJudge(BenchmarkResult $result): void
+    {
+        $benchmark = $result->benchmark;
+        $judgeKey = $this->findJudgeApiKey($benchmark->user_id);
         if ($judgeKey === null) {
-            Log::warning('No judge API key found for scoring', ['result_id' => $result->id]);
+            Log::warning('No scoring API key configured', ['result_id' => $result->id]);
 
             return;
         }
@@ -49,7 +47,7 @@ PROMPT;
         $prompt = str_replace(
             ['{prompt}', '{response}'],
             [$benchmark->prompt_text, mb_substr($result->output_content, 0, 4000)],
-            self::JUDGE_PROMPT,
+            $this->judgePrompt(),
         );
 
         try {
@@ -95,10 +93,34 @@ PROMPT;
                 ],
                 'score_status' => 'scored',
             ]);
-
         } catch (\Throwable $e) {
             Log::error('Scoring exception', ['result_id' => $result->id, 'error' => $e->getMessage()]);
         }
+    }
+
+    private function judgePrompt(): string
+    {
+        return <<<'PROMPT'
+You are an expert AI output evaluator. Rate the following AI-generated response on a scale of 1-10 based on these criteria:
+- Accuracy & Factual Correctness (weight: 30%)
+- Completeness (weight: 25%)
+- Clarity & Coherence (weight: 20%)
+- Relevance to the prompt (weight: 15%)
+- Conciseness (weight: 10%)
+
+Original Prompt:
+---
+{prompt}
+---
+
+AI Response to evaluate:
+---
+{response}
+---
+
+Reply ONLY with valid JSON in this exact format:
+{"score": <float 1-10>, "accuracy": <float 1-10>, "completeness": <float 1-10>, "clarity": <float 1-10>, "relevance": <float 1-10>, "conciseness": <float 1-10>, "reasoning": "<brief explanation>"}
+PROMPT;
     }
 
     private function findJudgeApiKey(int $userId): ?string

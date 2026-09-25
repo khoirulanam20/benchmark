@@ -46,6 +46,23 @@ class BenchmarkTest extends TestCase
         Queue::assertPushed(RunBenchmarkJob::class);
     }
 
+    public function test_user_can_view_benchmark_history(): void
+    {
+        $user = User::factory()->create();
+        Benchmark::factory()->for($user)->create(['title' => 'History Item']);
+
+        $response = $this->actingAs($user)->get('/benchmarks');
+        $response->assertStatus(200);
+        $response->assertSee('Benchmark History');
+        $response->assertSee('History Item');
+    }
+
+    public function test_guest_cannot_view_benchmark_history(): void
+    {
+        $response = $this->get('/benchmarks');
+        $response->assertRedirect('/login');
+    }
+
     public function test_user_can_view_own_benchmark(): void
     {
         $user = User::factory()->create();
@@ -72,7 +89,7 @@ class BenchmarkTest extends TestCase
 
         $response = $this->actingAs($user)->getJson("/benchmarks/{$benchmark->id}/status");
         $response->assertStatus(200);
-        $response->assertJsonStructure(['status', 'results']);
+        $response->assertJsonStructure(['status', 'status_label', 'finished', 'scoring_complete', 'results']);
     }
 
     public function test_user_cannot_submit_benchmark_without_api_key(): void

@@ -13,6 +13,18 @@ use Illuminate\View\View;
 
 class BenchmarkController extends Controller
 {
+    public function index(Request $request): View
+    {
+        $benchmarks = Benchmark::where('user_id', $request->user()->id)
+            ->withCount('results')
+            ->withSum('results', 'cost')
+            ->withAvg('results', 'quality_score')
+            ->latest()
+            ->paginate(20);
+
+        return view('benchmarks.index', compact('benchmarks'));
+    }
+
     public function create(Request $request): View
     {
         $models = AiModel::availableToUser($request->user()->id)
@@ -124,15 +136,30 @@ class BenchmarkController extends Controller
     {
         abort_unless($benchmark->user_id === $request->user()->id, 403);
 
+        $benchmark->load(['results.model']);
+
+        $finished = in_array($benchmark->status->value, ['completed', 'failed'], true);
+        $scoringComplete = ! $benchmark->results->contains(
+            fn (BenchmarkResult $r) => filled($r->output_content) && $r->score_status->value === 'pending'
+        );
+
         return [
-            'status' => $benchmark->status,
+            'status' => $benchmark->status->value,
+            'status_label' => $benchmark->status->label(),
+            'finished' => $finished,
+            'scoring_complete' => $scoringComplete,
             'results' => $benchmark->results->map(fn (BenchmarkResult $r) => [
                 'id' => $r->id,
                 'model' => $r->model->full_name,
+                'provider' => $r->model->provider,
+                'output_content' => $r->output_content,
+                'error_message' => $r->error_message,
                 'quality_score' => $r->effective_score,
-                'cost' => $r->cost,
-                'latency' => $r->latency_seconds,
-                'score_status' => $r->score_status,
+                'cost' => (float) $r->cost,
+                'latency_seconds' => $r->latency_seconds,
+                'prompt_tokens' => $r->prompt_tokens,
+                'completion_tokens' => $r->completion_tokens,
+                'score_status' => $r->score_status->value,
             ]),
         ];
     }
