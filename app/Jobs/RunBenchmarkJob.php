@@ -76,6 +76,12 @@ class RunBenchmarkJob implements ShouldQueue
             'status' => $hasError ? BenchmarkStatus::Failed : BenchmarkStatus::Completed,
             'completed_at' => now(),
         ]);
+
+        // Track monthly cost
+        $totalCost = $this->benchmark->results()->sum('cost');
+        if ($totalCost > 0) {
+            $this->benchmark->user()->increment('current_month_cost', $totalCost);
+        }
     }
 
     private function resolveApiKey(int $userId, string $provider): ?string

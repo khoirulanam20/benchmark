@@ -112,4 +112,46 @@ class BenchmarkController extends Controller
             ]),
         ];
     }
+
+    public function estimateCost(Request $request): array
+    {
+        $promptTokens = (int) ceil(str_word_count($request->input('prompt_text', '')) * 1.3);
+        $modelIds = $request->input('model_ids', []);
+
+        $estimates = [];
+        $total = 0;
+
+        foreach ($modelIds as $modelId) {
+            $model = AiModel::find($modelId);
+            if (! $model) {
+                continue;
+            }
+
+            $outputTokens = min(($model->default_params['max_tokens'] ?? 4096), 1000);
+            $inputCost = ($promptTokens / 1000) * (float) $model->input_price_per_1k_tokens;
+            $outputCost = ($outputTokens / 1000) * (float) $model->output_price_per_1k_tokens;
+            $cost = round($inputCost + $outputCost, 6);
+            $total += $cost;
+
+            $estimates[] = [
+                'model_id' => $model->id,
+                'model_name' => $model->full_name,
+                'estimated_input_tokens' => $promptTokens,
+                'estimated_output_tokens' => $outputTokens,
+                'estimated_cost' => $cost,
+            ];
+        }
+
+        $user = $request->user();
+        $remaining = max(0, (float) $user->monthly_cost_limit - (float) $user->current_month_cost);
+
+        return [
+            'estimates' => $estimates,
+            'total_estimated_cost' => round($total, 6),
+            'monthly_limit' => (float) $user->monthly_cost_limit,
+            'current_month_cost' => (float) $user->current_month_cost,
+            'remaining_budget' => round($remaining, 6),
+            'within_budget' => $total <= $remaining,
+        ];
+    }
 }

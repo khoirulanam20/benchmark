@@ -29,6 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::post('benchmarks', [BenchmarkController::class, 'store'])->name('benchmarks.store');
     Route::get('benchmarks/{benchmark}', [BenchmarkController::class, 'show'])->name('benchmarks.show');
     Route::get('benchmarks/{benchmark}/status', [BenchmarkController::class, 'status'])->name('benchmarks.status');
+    Route::post('benchmarks/estimate-cost', [BenchmarkController::class, 'estimateCost'])->name('benchmarks.estimate-cost');
 
     // Analytics
     Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
